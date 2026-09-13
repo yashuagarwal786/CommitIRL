@@ -1,0 +1,16 @@
+{
+  "name": "commitirl",
+  "private": true,
+  "packageManager": "pnpm@11.1.2",
+  "engines": {
+    "node": ">=24.15.0"
+  },
+  "scripts": {
+    "dev": "pnpm run db:up && pnpm --filter @commitirl/backend prisma:migrate && pnpm -r --parallel --filter @commitirl/api --filter @commitirl/worker --filter @commitirl/web dev",
+    "db:up": "docker compose up -d postgres",
+    "db:migrate": "pnpm --filter @commitirl/backend prisma:migrate",
+    "db:generate": "pnpm --filter @commitirl/backend prisma:generate",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  }
+}

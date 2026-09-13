@@ -1,0 +1,603 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserAccountStatus {
+  ACTIVE
+  SUSPENDED
+  PENDING_DELETION
+}
+
+enum ConsentType {
+  TERMS_ACCEPTANCE
+  PRIVACY_NOTICE_ACK
+  ADULT_ELIGIBILITY_ATTESTATION
+  AI_EVIDENCE_ANALYSIS
+  AI_PERSONALIZATION
+  EMAIL_INTERVENTIONS
+  SOCIAL_SHARING
+  PARTNER_DISCLOSURE
+}
+
+enum ConsentDecision {
+  GRANTED
+  REVOKED
+}
+
+enum ConsentCaptureSource {
+  ONBOARDING
+  SETTINGS
+  COMMITMENT_FLOW
+  PARTNER_FLOW
+  SYSTEM_MIGRATION
+}
+
+enum CommitmentCategory {
+  CODING
+  LEARNING
+  FITNESS
+  PRODUCTIVITY
+  DIGITAL_WELLBEING
+  PERSONAL_ACCOUNTABILITY
+  OTHER
+}
+
+enum TargetOperator {
+  GTE
+  LTE
+  EQ
+}
+
+enum TargetUnit {
+  BOOLEAN
+  COUNT
+  MINUTES
+  METERS
+  STEPS
+  WORDS
+  OTHER
+}
+
+enum ScheduleCadence {
+  ONE_TIME
+  DAILY
+  WEEKLY
+}
+
+enum CommitmentSensitivity {
+  STANDARD
+  SENSITIVE
+}
+
+enum CommitmentVisibility {
+  PRIVATE
+  SHARE_BY_GRANT
+}
+
+enum CommitmentStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+}
+
+enum VerificationSource {
+  GITHUB_API
+  IN_APP_SESSION
+  ARTIFACT_DETERMINISTIC
+  AI_EVIDENCE
+  PARTNER
+  SELF_REPORT
+}
+
+enum VerificationMethodStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum VerificationStatus {
+  VERIFIED
+  CONTRADICTED
+  UNCERTAIN
+  PENDING
+}
+
+enum AttemptState {
+  SCHEDULED
+  ACTIVE
+  AWAITING_VERIFICATION
+  RESOLVED
+  CANCELLED
+}
+
+enum AttemptOutcome {
+  COMPLETED
+  MISSED
+  UNCERTAIN
+}
+
+enum ProgressEventType {
+  PROGRESS_SET
+  PROGRESS_INCREMENT
+  SESSION_STARTED
+  SESSION_ENDED
+  TARGET_CLAIMED
+}
+
+enum ProgressSource {
+  USER
+  IN_APP
+  INTEGRATION
+  SYSTEM
+}
+
+enum IdempotencyStatus {
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RiskDataTier {
+  BASELINE
+  EARLY_SIGNAL
+  PERSONALIZED
+}
+
+enum InsightStatus {
+  ACTIVE
+  DISMISSED
+  EXPIRED
+}
+
+enum ContentGenerator {
+  DETERMINISTIC
+  AI_ASSISTED
+}
+
+enum InterventionChannel {
+  IN_APP
+}
+
+enum InterventionStatus {
+  CREATED
+  QUEUED
+  DELIVERED
+  SHOWN
+  CANCELLED
+  FAILED
+  EXPIRED
+}
+
+enum InterventionEventType {
+  QUEUED
+  DELIVERED
+  SHOWN
+  CLICKED
+  ACTIONED
+  DISMISSED
+  HELPFUL
+  NOT_HELPFUL
+  FAILED
+  OUTCOME_ATTRIBUTED
+}
+
+enum AuditActorType {
+  USER
+  PARTNER
+  SYSTEM
+  SUPPORT
+  ADMIN
+}
+
+enum AuditResult {
+  SUCCESS
+  DENIED
+  FAILURE
+}
+
+enum DataExportStatus {
+  REQUESTED
+  QUEUED
+  RUNNING
+  READY
+  FAILED
+  EXPIRED
+  CANCELLED
+}
+
+enum AccountDeletionStatus {
+  REQUESTED
+  CANCELLED
+  EXECUTING
+  COMPLETED
+  FAILED
+}
+
+enum OperationRunStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id                      String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  emailCiphertext         Bytes             @map("email_ciphertext")
+  emailHash               Bytes             @unique @map("email_hash")
+  emailKeyVersion         Int               @map("email_key_version") @db.SmallInt
+  displayNameCiphertext   Bytes?            @map("display_name_ciphertext")
+  displayNameKeyVersion   Int?              @map("display_name_key_version") @db.SmallInt
+  timezone                String            @db.VarChar(64)
+  locale                  String            @default("en") @db.VarChar(16)
+  accountStatus           UserAccountStatus @default(ACTIVE) @map("account_status")
+  onboardedAt             DateTime?         @map("onboarded_at") @db.Timestamptz
+  deletionRequestedAt     DateTime?         @map("deletion_requested_at") @db.Timestamptz
+  scheduledPurgeAt        DateTime?         @map("scheduled_purge_at") @db.Timestamptz
+  version                 Int               @default(1)
+  createdAt               DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime          @updatedAt @map("updated_at") @db.Timestamptz
+
+  preferences             UserPreference?
+  identities              AuthIdentity[]
+  consents                ConsentRecord[]
+  commitments             Commitment[]
+  attempts                CommitmentAttempt[]
+  audits                  AuditEvent[]
+  idempotencyRecords      IdempotencyRecord[]
+  exportRequests          DataExportRequest[]
+  deletionRequests        AccountDeletionRequest[]
+  insights                BehaviorInsight[]
+  interventions           Intervention[]
+
+  @@map("users")
+}
+
+model UserPreference {
+  userId                      String   @id @map("user_id") @db.Uuid
+  quietHoursStart             DateTime? @map("quiet_hours_start") @db.Time(0)
+  quietHoursEnd               DateTime? @map("quiet_hours_end") @db.Time(0)
+  inAppInterventionsEnabled   Boolean  @default(true) @map("in_app_interventions_enabled")
+  emailInterventionsEnabled   Boolean  @default(false) @map("email_interventions_enabled")
+  behaviorInsightsEnabled     Boolean  @default(true) @map("behavior_insights_enabled")
+  aiPersonalizationEnabled    Boolean  @default(false) @map("ai_personalization_enabled")
+  weekStartsOn                Int      @default(1) @map("week_starts_on") @db.SmallInt
+  version                     Int      @default(1)
+  createdAt                   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  user                        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model AuthIdentity {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  provider        String   @db.VarChar(32)
+  providerSubject String   @map("provider_subject") @db.VarChar(255)
+  providerTenant  String?  @map("provider_tenant") @db.VarChar(255)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  lastSeenAt      DateTime? @map("last_seen_at") @db.Timestamptz
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerSubject])
+  @@index([userId])
+  @@map("auth_identities")
+}
+
+model ConsentRecord {
+  id             String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String               @map("user_id") @db.Uuid
+  consentType    ConsentType          @map("consent_type")
+  decision       ConsentDecision
+  policyVersion  String               @map("policy_version") @db.VarChar(32)
+  captureSource  ConsentCaptureSource @map("capture_source")
+  capturedAt     DateTime             @default(now()) @map("captured_at") @db.Timestamptz
+  requestId      String?              @map("request_id") @db.Uuid
+  metadata       Json                 @default("{}")
+  idempotencyKey String               @unique @map("idempotency_key") @db.VarChar(128)
+  user           User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, consentType, capturedAt(sort: Desc)])
+  @@map("consent_records")
+}
+
+model Commitment {
+  id              String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String                 @map("user_id") @db.Uuid
+  title           String                 @db.VarChar(200)
+  description     String?
+  category        CommitmentCategory
+  sensitivity     CommitmentSensitivity
+  visibility      CommitmentVisibility   @default(PRIVATE)
+  cadence         ScheduleCadence
+  weekdays        String[]               @default([])
+  localStartDate  DateTime               @map("local_start_date") @db.Date
+  localEndDate    DateTime?              @map("local_end_date") @db.Date
+  localWindowStartTime String?           @map("local_window_start_time") @db.VarChar(8)
+  localDeadlineTime    String?           @map("local_deadline_time") @db.VarChar(8)
+  timezone        String                 @db.VarChar(64)
+  targetOperator  TargetOperator         @map("target_operator")
+  targetValue     Decimal                @map("target_value") @db.Decimal(12, 3)
+  targetUnit      TargetUnit             @map("target_unit")
+  targetLabel     String?                @map("target_label") @db.VarChar(64)
+  status          CommitmentStatus       @default(ACTIVE)
+  version         Int                    @default(1)
+  createdAt       DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime               @updatedAt @map("updated_at") @db.Timestamptz
+  user            User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  methods         CommitmentVerificationMethod[]
+  attempts        CommitmentAttempt[]
+
+  @@index([userId, status])
+  @@map("commitments")
+}
+
+model CommitmentVerificationMethod {
+  id              String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  commitmentId    String                   @map("commitment_id") @db.Uuid
+  provider        VerificationSource
+  priority        Int
+  configuration   Json                     @default("{}")
+  status          VerificationMethodStatus @default(ACTIVE)
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  commitment      Commitment               @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+
+  @@index([commitmentId])
+  @@map("commitment_verification_methods")
+}
+
+model CommitmentAttempt {
+  id                   String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String           @map("user_id") @db.Uuid
+  commitmentId         String           @map("commitment_id") @db.Uuid
+  commitmentVersion    Int              @map("commitment_version")
+  state                AttemptState     @default(SCHEDULED)
+  outcome              AttemptOutcome?
+  periodStartAt        DateTime         @map("period_start_at") @db.Timestamptz
+  deadlineAt           DateTime         @map("deadline_at") @db.Timestamptz
+  graceEndsAt          DateTime         @map("grace_ends_at") @db.Timestamptz
+  timezoneSnapshot     String           @map("timezone_snapshot") @db.VarChar(64)
+  targetOperator       TargetOperator   @map("target_operator")
+  targetValue          Decimal          @map("target_value") @db.Decimal(12, 3)
+  targetUnit           TargetUnit       @map("target_unit")
+  targetLabel          String?          @map("target_label") @db.VarChar(64)
+  currentProgressValue Decimal          @default(0) @map("current_progress_value") @db.Decimal(12, 3)
+  lastProgressEventAt  DateTime?        @map("last_progress_event_at") @db.Timestamptz
+  startedAt            DateTime?        @map("started_at") @db.Timestamptz
+  resolvedAt           DateTime?        @map("resolved_at") @db.Timestamptz
+  openFocusSessionId   String?          @map("open_focus_session_id") @db.Uuid
+  verificationSnapshot Json             @default("[]") @map("verification_snapshot")
+  version              Int              @default(1)
+  createdAt            DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  user                 User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  commitment           Commitment       @relation(fields: [commitmentId], references: [id], onDelete: Cascade)
+  progressEvents       AttemptProgressEvent[]
+  verificationRuns     VerificationRun[]
+  verificationResults  VerificationResult[]
+  riskSnapshots        RiskSnapshot[]
+  interventions        Intervention[]
+
+  @@unique([commitmentId, periodStartAt])
+  @@index([userId, state, deadlineAt])
+  @@index([state, deadlineAt])
+  @@index([state, graceEndsAt])
+  @@map("commitment_attempts")
+}
+
+model AttemptProgressEvent {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId        String            @map("attempt_id") @db.Uuid
+  type             ProgressEventType
+  source           ProgressSource
+  value            Decimal?          @db.Decimal(12, 3)
+  unit             TargetUnit?
+  sessionId        String?           @map("session_id") @db.Uuid
+  closureReason    String?           @map("closure_reason") @db.VarChar(64)
+  observationLimited Boolean         @default(false) @map("observation_limited")
+  metadata         Json              @default("{}")
+  occurredAt       DateTime          @default(now()) @map("occurred_at") @db.Timestamptz
+  createdAt        DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  attempt          CommitmentAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId, createdAt])
+  @@index([sessionId])
+  @@map("attempt_progress_events")
+}
+
+model VerificationRun {
+  id                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId            String              @map("attempt_id") @db.Uuid
+  source               VerificationSource
+  status               OperationRunStatus  @default(QUEUED)
+  verificationResultId String?             @unique @map("verification_result_id") @db.Uuid
+  errorCode            String?             @map("error_code") @db.VarChar(64)
+  startedAt            DateTime?           @map("started_at") @db.Timestamptz
+  completedAt          DateTime?           @map("completed_at") @db.Timestamptz
+  createdAt            DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  attempt              CommitmentAttempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  result               VerificationResult? @relation(fields: [verificationResultId], references: [id])
+
+  @@index([attemptId, source])
+  @@map("verification_runs")
+}
+
+model VerificationResult {
+  id                String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId         String             @map("attempt_id") @db.Uuid
+  status            VerificationStatus
+  source            VerificationSource
+  confidence        Int?
+  reasonCode        String             @map("reason_code") @db.VarChar(64)
+  reason            String
+  claimScope        Json               @map("claim_scope")
+  observations      Json               @default("[]")
+  limitations       Json               @default("[]")
+  refs              Json               @default("[]")
+  metadata          Json               @default("{}")
+  evaluator         String             @db.VarChar(64)
+  evaluatorVersion  String             @map("evaluator_version") @db.VarChar(32)
+  schemaVersion     Int                @default(1) @map("schema_version")
+  assessedAt        DateTime           @default(now()) @map("assessed_at") @db.Timestamptz
+  createdAt         DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  attempt           CommitmentAttempt  @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  runs              VerificationRun[]
+
+  @@index([attemptId, assessedAt(sort: Desc)])
+  @@map("verification_results")
+}
+
+model RiskSnapshot {
+  id                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  attemptId            String            @map("attempt_id") @db.Uuid
+  score                Int
+  level                RiskLevel
+  factors              Json
+  dataTier             RiskDataTier      @map("data_tier")
+  comparableSampleSize Int               @map("comparable_sample_size")
+  algorithmVersion     String            @map("algorithm_version") @db.VarChar(32)
+  calculatedAt         DateTime          @default(now()) @map("calculated_at") @db.Timestamptz
+  attempt              CommitmentAttempt @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+
+  @@index([attemptId, calculatedAt(sort: Desc)])
+  @@map("risk_snapshots")
+}
+
+model BehaviorInsight {
+  id                 String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId             String        @map("user_id") @db.Uuid
+  type               String        @db.VarChar(64)
+  statement          String
+  sampleSize         Int           @map("sample_size")
+  windowStartAt      DateTime      @map("window_start_at") @db.Timestamptz
+  windowEndAt        DateTime      @map("window_end_at") @db.Timestamptz
+  action             String
+  stage              String        @db.VarChar(32)
+  calculationVersion String        @map("calculation_version") @db.VarChar(32)
+  limitations        Json          @default("[]")
+  status             InsightStatus @default(ACTIVE)
+  createdAt          DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("behavior_insights")
+}
+
+model Intervention {
+  id              String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId          String              @map("user_id") @db.Uuid
+  attemptId       String              @map("attempt_id") @db.Uuid
+  riskSnapshotId  String              @map("risk_snapshot_id") @db.Uuid
+  ordinal         Int
+  status          InterventionStatus  @default(DELIVERED)
+  channel         InterventionChannel @default(IN_APP)
+  message         String
+  actionType      String              @map("action_type") @db.VarChar(64)
+  actionLabel     String              @map("action_label") @db.VarChar(64)
+  generator       ContentGenerator
+  deliverAt       DateTime            @map("deliver_at") @db.Timestamptz
+  expiresAt       DateTime            @map("expires_at") @db.Timestamptz
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  attempt         CommitmentAttempt   @relation(fields: [attemptId], references: [id], onDelete: Cascade)
+  events          InterventionEvent[]
+
+  @@unique([attemptId, ordinal])
+  @@index([userId, status, deliverAt])
+  @@map("interventions")
+}
+
+model InterventionEvent {
+  id             String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  interventionId String                 @map("intervention_id") @db.Uuid
+  type           InterventionEventType
+  reasonCode     String?                @map("reason_code") @db.VarChar(64)
+  occurredAt     DateTime               @default(now()) @map("occurred_at") @db.Timestamptz
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  intervention   Intervention           @relation(fields: [interventionId], references: [id], onDelete: Cascade)
+
+  @@index([interventionId, occurredAt])
+  @@map("intervention_events")
+}
+
+model IdempotencyRecord {
+  id             String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String?            @map("user_id") @db.Uuid
+  key            String             @map("idempotency_key") @db.VarChar(128)
+  method         String             @db.VarChar(8)
+  route          String             @db.VarChar(255)
+  requestHash    String             @map("request_hash") @db.VarChar(64)
+  status         IdempotencyStatus  @default(IN_PROGRESS)
+  responseStatus Int?               @map("response_status")
+  responseBody   Json?              @map("response_body")
+  createdAt      DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  expiresAt      DateTime           @map("expires_at") @db.Timestamptz
+  user           User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, key, method, route])
+  @@map("idempotency_records")
+}
+
+model AuditEvent {
+  id           String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorType    AuditActorType @map("actor_type")
+  actorUserId  String?        @map("actor_user_id") @db.Uuid
+  action       String         @db.VarChar(64)
+  resourceType String         @map("resource_type") @db.VarChar(64)
+  resourceId   String?        @map("resource_id") @db.Uuid
+  result       AuditResult
+  reasonCode   String?        @map("reason_code") @db.VarChar(64)
+  requestId    String?        @map("request_id") @db.Uuid
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  user         User?          @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([actorUserId, createdAt])
+  @@map("audit_events")
+}
+
+model DataExportRequest {
+  id        String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String            @map("user_id") @db.Uuid
+  status    DataExportStatus  @default(QUEUED)
+  format    String            @default("JSON_ZIP") @db.VarChar(32)
+  expiresAt DateTime?         @map("expires_at") @db.Timestamptz
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("data_export_requests")
+}
+
+model AccountDeletionRequest {
+  id             String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId         String                 @map("user_id") @db.Uuid
+  status         AccountDeletionStatus  @default(REQUESTED)
+  recoveryEndsAt DateTime               @map("recovery_ends_at") @db.Timestamptz
+  version        Int                    @default(1)
+  createdAt      DateTime               @default(now()) @map("created_at") @db.Timestamptz
+  user           User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("account_deletion_requests")
+}
+
+model JobLease {
+  name      String   @id @db.VarChar(64)
+  leasedUntil DateTime @map("leased_until") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("job_leases")
+}
