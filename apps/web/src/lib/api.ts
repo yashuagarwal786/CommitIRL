@@ -1,6 +1,8 @@
 const TOKEN_KEY = "commitirl.dev.token";
 
-export const apiUrl = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+// In the production Compose stack, Nginx proxies API paths to the API service.
+// A separately hosted API can still be supplied through VITE_API_URL at build time.
+export const apiUrl = import.meta.env.VITE_API_URL || (typeof window !== "undefined" ? window.location.origin : "http://localhost:3001");
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
