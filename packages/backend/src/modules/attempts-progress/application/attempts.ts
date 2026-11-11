@@ -1,12 +1,12 @@
 import { Decimal } from "@prisma/client/runtime/library";
 import type { Prisma } from "@prisma/client";
-import { prisma } from "../../platform/db.js";
-import { systemClock } from "../../platform/clock.js";
-import { newId } from "../../platform/crypto.js";
-import { AppError, conflict, notFound, validationFailed, versionConflict } from "../../platform/errors.js";
-import { progressMeetsTarget, unitCompatible } from "../commitments-scheduling/domain/schedule.js";
-import { evaluateAndMaybeResolve } from "../verification/application/resolve.js";
-import { evaluateRiskForAttempt } from "../risk/application/evaluate.js";
+import { prisma } from "../../../platform/db.js";
+import { systemClock } from "../../../platform/clock.js";
+import { newId } from "../../../platform/crypto.js";
+import { AppError, conflict, notFound, validationFailed, versionConflict } from "../../../platform/errors.js";
+import { progressMeetsTarget, unitCompatible } from "../../commitments-scheduling/domain/schedule.js";
+import { evaluateAndMaybeResolve } from "../../verification/application/resolve.js";
+import { evaluateRiskForAttempt } from "../../risk/application/evaluate.js";
 
 type AttemptRow = Prisma.CommitmentAttemptGetPayload<{ include: { commitment: true } }>;
 

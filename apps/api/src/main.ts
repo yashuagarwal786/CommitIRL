@@ -15,7 +15,7 @@ const app = express();
 app.disable("x-powered-by");
 app.use(
   cors({
-    origin: env.WEB_ORIGIN,
+    origin: env.NODE_ENV === "development" ? [env.WEB_ORIGIN, "http://127.0.0.1:5173"] : env.WEB_ORIGIN,
     credentials: true,
     allowedHeaders: ["Authorization", "Content-Type", "If-Match", "Idempotency-Key", "X-Request-Id"],
     exposedHeaders: ["X-Request-Id"],

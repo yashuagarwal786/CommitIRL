@@ -1,4 +1,4 @@
-import { prisma } from "../../platform/db.js";
+import { prisma } from "../../../platform/db.js";
 
 export async function maybeCreateIntervention(attemptId: string) {
   const attempt = await prisma.commitmentAttempt.findUnique({
@@ -11,6 +11,12 @@ export async function maybeCreateIntervention(attemptId: string) {
   if (!attempt || attempt.state !== "ACTIVE") return null;
   const prefs = attempt.user.preferences;
   if (prefs && !prefs.inAppInterventionsEnabled) return null;
+  if (prefs?.quietHoursStart && prefs.quietHoursEnd && isWithinQuietHours(
+    new Date(),
+    attempt.user.timezone,
+    prefs.quietHoursStart,
+    prefs.quietHoursEnd,
+  )) return null;
   const latest = attempt.riskSnapshots[0];
   if (!latest || (latest.level !== "HIGH" && latest.level !== "CRITICAL")) return null;
   const existing = await prisma.intervention.count({ where: { attemptId } });
@@ -46,6 +52,20 @@ export async function maybeCreateIntervention(attemptId: string) {
       expiresAt: attempt.deadlineAt,
     },
   });
+}
+
+export function isWithinQuietHours(now: Date, timezone: string, start: Date, end: Date) {
+  const localTime = new Intl.DateTimeFormat("en-GB", {
+    timeZone: timezone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).format(now);
+  const startTime = start.toISOString().slice(11, 16);
+  const endTime = end.toISOString().slice(11, 16);
+  return startTime < endTime
+    ? localTime >= startTime && localTime < endTime
+    : localTime >= startTime || localTime < endTime;
 }
 
 export async function listInterventions(userId: string) {
@@ -97,6 +117,7 @@ export function serializeIntervention(row: {
     ordinal: row.ordinal,
     status: row.status,
     message: row.message,
+    actionLabel: row.actionLabel,
     action: { type: row.actionType, label: row.actionLabel },
     generator: row.generator,
     deliverAt: row.deliverAt.toISOString(),

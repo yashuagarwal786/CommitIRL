@@ -11,6 +11,11 @@
     "db:migrate": "pnpm --filter @commitirl/backend prisma:migrate",
     "db:generate": "pnpm --filter @commitirl/backend prisma:generate",
     "build": "pnpm -r build",
-    "typecheck": "pnpm -r typecheck"
+    "typecheck": "pnpm -r typecheck",
+    "smoke:e2e": "node scripts/smoke.mjs"
+  },
+  "devDependencies": {
+    "@types/node": "^24.5.2",
+    "typescript": "^5.9.2"
   }
 }

@@ -1,6 +1,8 @@
 import { Router, type Request, type Response, type NextFunction } from "express";
+import type {} from "../types/express.js";
 import {
   completeOnboardingBodySchema,
+  cancelAccountDeletionBodySchema,
   createCommitmentBodySchema,
   createConsentBodySchema,
   devSessionBodySchema,
@@ -12,15 +14,16 @@ import {
   pauseCommitmentBodySchema,
   progressEventBodySchema,
   recommendVerificationBodySchema,
+  requestAccountDeletionBodySchema,
   resumeCommitmentBodySchema,
   selfReportBodySchema,
   startFocusBodySchema,
 } from "@commitirl/contracts";
 import type { ServerEnv } from "@commitirl/config";
 import { authenticateBearer, issueDevToken } from "../platform/auth.js";
-import { AppError, unauthenticated, validationFailed } from "../platform/errors.js";
+import { AppError, forbidden, unauthenticated, validationFailed } from "../platform/errors.js";
 import { withIdempotency } from "../platform/idempotency.js";
-import { completeOnboarding, getMe, getPreferences, patchMe, requireOnboarded } from "../modules/users-privacy/application/users.js";
+import { cancelAccountDeletion, completeOnboarding, getMe, getPreferences, patchMe, requestAccountDeletion, requireOnboarded } from "../modules/users-privacy/application/users.js";
 import {
   archiveCommitment,
   createCommitment,
@@ -52,8 +55,11 @@ function parseIfMatch(header: string | undefined): number {
   return n;
 }
 
-async function requireUser(req: Request, env: ServerEnv) {
+async function requireUser(req: Request, env: ServerEnv, allowPendingDeletion = false) {
   const ctx = await authenticateBearer(env, req.header("authorization"));
+  if (!allowPendingDeletion && ctx.accountStatus === "PENDING_DELETION") {
+    throw forbidden("ACCOUNT_PENDING_DELETION", "Cancel the pending deletion request to resume product activity.");
+  }
   req.auth = ctx;
   return ctx;
 }
@@ -87,7 +93,7 @@ export function createApiRouter(env: ServerEnv): Router {
 
   router.get("/v1/me", async (req, res, next) => {
     try {
-      const ctx = await requireUser(req, env);
+      const ctx = await requireUser(req, env, true);
       res.json({ data: await getMe(env, ctx.userId) });
     } catch (error) {
       next(error);
@@ -99,6 +105,26 @@ export function createApiRouter(env: ServerEnv): Router {
       const ctx = await requireUser(req, env);
       const body = patchMeBodySchema.parse(req.body);
       res.json({ data: await patchMe(env, ctx.userId, parseIfMatch(req.header("if-match")), body) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete("/v1/me", async (req, res, next) => {
+    try {
+      const ctx = await requireUser(req, env);
+      requestAccountDeletionBodySchema.parse(req.body);
+      res.status(202).json({ data: await requestAccountDeletion(ctx.userId, parseIfMatch(req.header("if-match"))) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/v1/me/deletion-cancellation", async (req, res, next) => {
+    try {
+      const ctx = await requireUser(req, env, true);
+      const body = cancelAccountDeletionBodySchema.parse(req.body);
+      res.json({ data: await cancelAccountDeletion(ctx.userId, body.deletionRequestId, parseIfMatch(req.header("if-match"))) });
     } catch (error) {
       next(error);
     }
@@ -134,10 +160,17 @@ export function createApiRouter(env: ServerEnv): Router {
       const version = parseIfMatch(req.header("if-match"));
       const prefs = await prisma.userPreference.findUniqueOrThrow({ where: { userId: ctx.userId } });
       if (prefs.version !== version) throw versionConflictSafe();
+      const quietHours = body.quietHours
+        ? {
+            quietHoursStart: body.quietHours.start ? parseQuietHour(body.quietHours.start) : null,
+            quietHoursEnd: body.quietHours.end ? parseQuietHour(body.quietHours.end) : null,
+          }
+        : {};
       const updated = await prisma.userPreference.update({
         where: { userId: ctx.userId },
         data: {
           version: { increment: 1 },
+          ...quietHours,
           inAppInterventionsEnabled: body.inAppInterventionsEnabled ?? prefs.inAppInterventionsEnabled,
           behaviorInsightsEnabled: body.behaviorInsightsEnabled ?? prefs.behaviorInsightsEnabled,
           aiPersonalizationEnabled: body.aiPersonalizationEnabled ?? prefs.aiPersonalizationEnabled,
@@ -373,6 +406,10 @@ export function createApiRouter(env: ServerEnv): Router {
 
 function versionConflictSafe() {
   return new AppError("VERSION_CONFLICT", "This record changed. Refresh and try again.", 412);
+}
+
+function parseQuietHour(value: string) {
+  return new Date(`1970-01-01T${value}:00.000Z`);
 }
 
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction) {

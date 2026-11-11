@@ -1,3 +1,5 @@
+import type {} from "./types/express.js";
+
 export { createApiRouter, errorHandler } from "./http/router.js";
 export { prisma, pingDatabase } from "./platform/db.js";
 export { generateAttemptsForCommitment } from "./modules/commitments-scheduling/application/commitments.js";

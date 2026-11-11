@@ -161,8 +161,14 @@ export const patchPreferencesBodySchema = z
   .object({
     quietHours: z
       .object({
-        start: z.string().nullable(),
-        end: z.string().nullable(),
+        start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable(),
+        end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/).nullable(),
+      })
+      .refine((value) => (value.start === null) === (value.end === null), {
+        message: "Quiet hours must include both a start and end time, or neither.",
+      })
+      .refine((value) => value.start === null || value.start !== value.end, {
+        message: "Quiet-hour start and end times must be different.",
       })
       .optional(),
     inAppInterventionsEnabled: z.boolean().optional(),
@@ -177,6 +183,17 @@ export const createConsentBodySchema = z
     consentType: consentTypeSchema,
     decision: consentDecisionSchema,
     policyVersion: z.string().min(1).max(32),
+  })
+  .strict();
+
+export const requestAccountDeletionBodySchema = z
+  .object({ confirmation: z.literal("DELETE") })
+  .strict();
+
+export const cancelAccountDeletionBodySchema = z
+  .object({
+    deletionRequestId: uuidSchema,
+    confirmation: z.literal("KEEP_MY_ACCOUNT"),
   })
   .strict();
 

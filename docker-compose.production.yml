@@ -1,0 +1,74 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-commitirl}
+    volumes:
+      - commitirl_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    command: sh -c "pnpm --filter @commitirl/backend prisma:migrate && pnpm --filter @commitirl/api start"
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-commitirl}
+      AUTH_MODE: ${AUTH_MODE:-dev}
+      DEV_JWT_SECRET: ${DEV_JWT_SECRET:?set DEV_JWT_SECRET}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?set DATA_ENCRYPTION_KEY}
+      LOOKUP_HMAC_KEY: ${LOOKUP_HMAC_KEY:?set LOOKUP_HMAC_KEY}
+      WEB_ORIGIN: ${WEB_ORIGIN:?set WEB_ORIGIN}
+      API_PORT: 3001
+      WORKER_POLL_MS: ${WORKER_POLL_MS:-5000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-commitirl}
+      AUTH_MODE: ${AUTH_MODE:-dev}
+      DEV_JWT_SECRET: ${DEV_JWT_SECRET:?set DEV_JWT_SECRET}
+      DATA_ENCRYPTION_KEY: ${DATA_ENCRYPTION_KEY:?set DATA_ENCRYPTION_KEY}
+      LOOKUP_HMAC_KEY: ${LOOKUP_HMAC_KEY:?set LOOKUP_HMAC_KEY}
+      WEB_ORIGIN: ${WEB_ORIGIN:?set WEB_ORIGIN}
+      API_PORT: 3001
+      WORKER_POLL_MS: ${WORKER_POLL_MS:-5000}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      api:
+        condition: service_started
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+      args:
+        VITE_API_URL: ${VITE_API_URL:?set VITE_API_URL}
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_started
+    ports:
+      - "8080:80"
+
+volumes:
+  commitirl_pg:

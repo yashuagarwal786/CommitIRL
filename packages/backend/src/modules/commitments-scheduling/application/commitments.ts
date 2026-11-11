@@ -1,10 +1,10 @@
 import { Decimal } from "@prisma/client/runtime/library";
 import type { Prisma } from "@prisma/client";
 import type { CreateCommitmentBody, Schedule, Target } from "@commitirl/contracts";
-import { prisma } from "../../platform/db.js";
-import { systemClock, type Clock } from "../../platform/clock.js";
-import { AppError, conflict, notFound, validationFailed, versionConflict } from "../../platform/errors.js";
-import { generateHorizon, progressMeetsTarget, unitCompatible } from "./domain/schedule.js";
+import { prisma } from "../../../platform/db.js";
+import { systemClock, type Clock } from "../../../platform/clock.js";
+import { AppError, conflict, notFound, validationFailed, versionConflict } from "../../../platform/errors.js";
+import { generateHorizon, progressMeetsTarget, unitCompatible } from "../domain/schedule.js";
 
 function dateOnly(value: string): Date {
   return new Date(`${value}T00:00:00.000Z`);
@@ -135,7 +135,7 @@ export async function createCommitment(userId: string, body: CreateCommitmentBod
           create: body.verificationMethods.map((method) => ({
             provider: method.provider,
             priority: method.priority,
-            configuration: method.configuration,
+            configuration: method.configuration as Prisma.InputJsonValue,
           })),
         },
       },
@@ -155,7 +155,7 @@ export async function createCommitment(userId: string, body: CreateCommitmentBod
     return commitment;
   });
   await generateAttemptsForCommitment(created.id);
-  return serializeCommitment(created);
+  return serializeCommitment(created as Prisma.CommitmentGetPayload<{ include: { methods: true } }>);
 }
 
 export async function listCommitments(userId: string, status?: string) {
@@ -230,6 +230,15 @@ export async function archiveCommitment(userId: string, commitmentId: string, ve
 function validateSchedule(schedule: Schedule) {
   if (schedule.cadence === "WEEKLY" && (!schedule.weekdays || schedule.weekdays.length === 0)) {
     throw validationFailed({ fields: [{ path: "schedule.weekdays", issue: "Weekly cadence requires weekdays." }] });
+  }
+  if (
+    schedule.localWindowStartTime &&
+    schedule.localDeadlineTime &&
+    schedule.localDeadlineTime <= schedule.localWindowStartTime
+  ) {
+    throw validationFailed({
+      fields: [{ path: "schedule.localDeadlineTime", issue: "P0 commitments must end on the same local day they start." }],
+    });
   }
 }
 

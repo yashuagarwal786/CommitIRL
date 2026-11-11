@@ -1,4 +1,4 @@
-import { prisma } from "../../platform/db.js";
+import { prisma } from "../../../platform/db.js";
 
 export async function recomputeInsights(userId: string) {
   const resolved = await prisma.commitmentAttempt.findMany({

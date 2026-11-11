@@ -8,24 +8,25 @@ export function normalizeEmail(email: string): string {
   return email.trim().normalize("NFC").toLowerCase();
 }
 
-export function lookupHash(value: string, hexKey: string): Buffer {
-  return createHmac("sha256", Buffer.from(hexKey, "hex")).update(value).digest();
+export function lookupHash(value: string, hexKey: string): Uint8Array<ArrayBuffer> {
+  return new Uint8Array(createHmac("sha256", Buffer.from(hexKey, "hex")).update(value).digest());
 }
 
-export function encryptUtf8(plain: string, hexKey: string): Buffer {
+export function encryptUtf8(plain: string, hexKey: string): Uint8Array<ArrayBuffer> {
   const key = Buffer.from(hexKey, "hex");
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
   const encrypted = Buffer.concat([cipher.update(plain, "utf8"), cipher.final()]);
   const tag = cipher.getAuthTag();
-  return Buffer.concat([iv, tag, encrypted]);
+  return new Uint8Array(Buffer.concat([iv, tag, encrypted]));
 }
 
-export function decryptUtf8(payload: Buffer, hexKey: string): string {
+export function decryptUtf8(payload: Uint8Array, hexKey: string): string {
+  const bytes = Buffer.from(payload);
   const key = Buffer.from(hexKey, "hex");
-  const iv = payload.subarray(0, 12);
-  const tag = payload.subarray(12, 28);
-  const data = payload.subarray(28);
+  const iv = bytes.subarray(0, 12);
+  const tag = bytes.subarray(12, 28);
+  const data = bytes.subarray(28);
   const decipher = createDecipheriv("aes-256-gcm", key, iv);
   decipher.setAuthTag(tag);
   return Buffer.concat([decipher.update(data), decipher.final()]).toString("utf8");

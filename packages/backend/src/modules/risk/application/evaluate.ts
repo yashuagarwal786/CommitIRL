@@ -1,5 +1,6 @@
-import { prisma } from "../../platform/db.js";
-import { maybeCreateIntervention } from "../interventions-notifications/application/interventions.js";
+import type { Prisma } from "@prisma/client";
+import { prisma } from "../../../platform/db.js";
+import { maybeCreateIntervention } from "../../interventions-notifications/application/interventions.js";
 
 const WEIGHTS = {
   NO_PROGRESS_AFTER_HALF: 30,
@@ -90,7 +91,7 @@ export async function evaluateRiskForAttempt(attemptId: string) {
             attemptId,
             score,
             level,
-            factors,
+            factors: factors as Prisma.InputJsonValue,
             dataTier,
             comparableSampleSize: recent.length,
             algorithmVersion: "risk-v1",

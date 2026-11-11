@@ -1,6 +1,6 @@
 import { Decimal } from "@prisma/client/runtime/library";
 import type { ScheduleCadence, TargetOperator, TargetUnit } from "@prisma/client";
-import type { Clock } from "../../platform/clock.js";
+import type { Clock } from "../../../platform/clock.js";
 
 const WEEKDAY_INDEX: Record<string, number> = {
   SUNDAY: 0,
