@@ -1,0 +1,80 @@
+services:
+  - type: web
+    name: commitirl-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile.api
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AUTH_MODE
+        value: dev
+      - key: DATABASE_URL
+        fromDatabase:
+          name: commitirl-db
+          property: connectionString
+      - key: DEV_JWT_SECRET
+        generateValue: true
+      - key: DATA_ENCRYPTION_KEY
+        sync: false
+      - key: LOOKUP_HMAC_KEY
+        sync: false
+      - key: WEB_ORIGIN
+        sync: false
+      - key: API_PORT
+        value: 3001
+      - key: WORKER_POLL_MS
+        value: 5000
+      - key: LOG_LEVEL
+        value: info
+    dockerCommand: sh -c "pnpm --filter @commitirl/backend prisma:migrate && pnpm --filter @commitirl/api start"
+
+  - type: worker
+    name: commitirl-worker
+    runtime: docker
+    dockerfilePath: ./Dockerfile.worker
+    dockerContext: .
+    autoDeployTrigger: commit
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: AUTH_MODE
+        value: dev
+      - key: DATABASE_URL
+        fromDatabase:
+          name: commitirl-db
+          property: connectionString
+      - key: DEV_JWT_SECRET
+        fromService:
+          name: commitirl-api
+          type: web
+          envVarKey: DEV_JWT_SECRET
+      - key: DATA_ENCRYPTION_KEY
+        fromService:
+          name: commitirl-api
+          type: web
+          envVarKey: DATA_ENCRYPTION_KEY
+      - key: LOOKUP_HMAC_KEY
+        fromService:
+          name: commitirl-api
+          type: web
+          envVarKey: LOOKUP_HMAC_KEY
+      - key: WEB_ORIGIN
+        fromService:
+          name: commitirl-api
+          type: web
+          envVarKey: WEB_ORIGIN
+      - key: API_PORT
+        value: 3001
+      - key: WORKER_POLL_MS
+        value: 5000
+      - key: LOG_LEVEL
+        value: info
+
+databases:
+  - name: commitirl-db
+    databaseName: commitirl
+    user: commitirl
+    postgresMajorVersion: 16

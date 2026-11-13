@@ -30,6 +30,7 @@ app.use((req, res, next) => {
 app.use(createApiRouter(env));
 app.use(errorHandler);
 
-app.listen(env.API_PORT, () => {
-  console.log(`CommitIRL API listening on http://localhost:${env.API_PORT}`);
+const port = env.PORT ?? env.API_PORT;
+app.listen(port, "0.0.0.0", () => {
+  console.log(`CommitIRL API listening on port ${port}`);
 });

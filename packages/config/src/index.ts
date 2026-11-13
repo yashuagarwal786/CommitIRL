@@ -8,6 +8,7 @@ export const serverEnvSchema = z.object({
   DATA_ENCRYPTION_KEY: z.string().min(64),
   LOOKUP_HMAC_KEY: z.string().min(64),
   WEB_ORIGIN: z.string().url(),
+  PORT: z.coerce.number().int().positive().optional(),
   API_PORT: z.coerce.number().int().positive().default(3001),
   WORKER_POLL_MS: z.coerce.number().int().positive().default(5000),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
