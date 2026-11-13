@@ -18,9 +18,9 @@ services:
       - key: DEV_JWT_SECRET
         generateValue: true
       - key: DATA_ENCRYPTION_KEY
-        sync: false
+        generateValue: true
       - key: LOOKUP_HMAC_KEY
-        sync: false
+        generateValue: true
       - key: WEB_ORIGIN
         sync: false
       - key: API_PORT
