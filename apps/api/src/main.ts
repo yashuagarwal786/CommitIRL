@@ -12,10 +12,11 @@ loadEnv({ path: path.join(root, ".env") });
 
 const env = loadServerEnv();
 const app = express();
+const webOrigin = env.WEB_ORIGIN.replace(/\/$/, "");
 app.disable("x-powered-by");
 app.use(
   cors({
-    origin: env.NODE_ENV === "development" ? [env.WEB_ORIGIN, "http://127.0.0.1:5173"] : env.WEB_ORIGIN,
+    origin: env.NODE_ENV === "development" ? [webOrigin, "http://127.0.0.1:5173"] : webOrigin,
     credentials: true,
     allowedHeaders: ["Authorization", "Content-Type", "If-Match", "Idempotency-Key", "X-Request-Id"],
     exposedHeaders: ["X-Request-Id"],
